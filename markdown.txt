@@ -49,3 +49,9 @@ mathe-jump/
 
 ## 5. Nächster Schritt
 Bestätige kurz, dass du den Projektstand verstanden hast, und frage mich, welches neue Feature oder Level wir als Nächstes umsetzen sollen.
+
+Hier sind die Lösungen für die 4 aktuellen Level aus deiner levels.js:
+• Level 1 (Erste Schritte – Plus): x + 1
+• Level 2 (Flache Steigung – Mal & Geteilt): 0.5*x (oder x/2)
+• Level 3 (Der Parabel-Sprung): -(x-2)^2 + 4 (oder -x^2 + 4*x)
+• Level 4 (Anlauf nach links): -x^2 + 4
