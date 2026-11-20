@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mathe-Jump</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="game-container">
+    <header>
+      <h1 id="level-title">Level 1</h1>
+      <p id="level-hint">Hinweis lädt...</p>
+    </header>
+
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+    <div class="controls">
+      <div class="input-group">
+        <label for="formula">y =</label>
+        <input type="text" id="formula" placeholder="z.B. x + 1 oder -0.5*x^2 + 3" autocomplete="off">
+      </div>
+      <button id="jumpBtn">Springen! 🚀</button>
+      <button id="nextBtn" class="hidden">Nächstes Level ➡️</button>
+    </div>
+
+    <p id="status-msg"></p>
+  </div>
+
+  <script src="levels.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
