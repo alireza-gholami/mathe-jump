@@ -25,6 +25,47 @@ body {
   box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 
+.player-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  background: #181825;
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#playerNameInput {
+  background: #2a2a3c;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  color: #fff;
+  padding: 4px 8px;
+  width: 120px;
+  font-size: 0.9rem;
+}
+
+.small-btn {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  background: #89b4fa;
+}
+
+.badge {
+  color: #a6e3a1;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
 header h1 {
   color: #ffd166;
   font-size: 1.5rem;
@@ -71,7 +112,7 @@ canvas {
   margin-right: 8px;
 }
 
-input {
+.input-group input {
   background: transparent;
   border: none;
   color: #fff;

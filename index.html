@@ -8,6 +8,15 @@
 </head>
 <body>
   <div class="game-container">
+    <!-- Spieler-Leiste oben -->
+    <div class="player-bar">
+      <div class="player-info">
+        👤 Spieler: <input type="text" id="playerNameInput" placeholder="Dein Name..." maxlength="15">
+        <button id="savePlayerBtn" class="small-btn">Laden / Speichern</button>
+      </div>
+      <span id="savedBadge" class="badge">Fortschritt: Level 1</span>
+    </div>
+
     <header>
       <h1 id="level-title">Level 1</h1>
       <p id="level-hint">Hinweis lädt...</p>
