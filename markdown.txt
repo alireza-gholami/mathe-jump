@@ -1,0 +1,51 @@
+# PROJEKT-KONTEXT: "Mathe-Jump" (Browser-Spiel)
+
+Du hilfst mir bei der Weiterentwicklung meines Browser-Spiels **Mathe-Jump**. Lies dir diesen Projektstand genau durch, bevor wir weitermachen.
+
+## 1. Deine Arbeitsweise & Regeln für mich
+- **Sprache:** Antworte auf Deutsch, aber verwende für **Git-Begriffe immer die englischen Fachbegriffe** (`repository`, `branch`, `commit`, `push`, `pull`, `remote`, `merge`, `local` etc.).
+- **Entwicklungsumgebung:** Windows PC mit **VS Code** (inkl. *Live Server* Extension) und **Git / GitHub Pages** (`main` branch).
+- **Ziel:** Das Spiel muss komplett ohne Backend/Server-Installation laufen (reines HTML/CSS/Vanilla JS), damit es über GitHub Pages auf PC, Mac, iOS und Android im Browser spielbar ist.
+- **Erweiterbarkeit:** Der Code muss modular bleiben, sodass jederzeit neue Level und mathematische Regeln ergänzt werden können.
+
+## 2. Spielkonzept & bisherige Anforderungen
+- **Spielprinzip:** Ein 2D-Jump-'n'-Run, bei dem die Spielfigur nicht per Tastatur gesteuert wird, sondern über eine vom Spieler eingegebene **mathematische Funktion** (`y = ...`). Die Figur bewegt sich entlang dieser Kurve, um alle platzierten Münzen einzusammeln.
+- **Visuelles Design:**
+  - Kein schwarzes Mathe-Gitter, sondern ein freundlicher **Wiesen- und Himmel-Hintergrund** (Wolken, Hügel, grüner Boden) mit dezenten Hilfspunkten und Achsen-Zahlen zum Ablesen der Koordinaten.
+  - Eigene Grafiken (`figure.png` und `coin.png` im Hauptordner) werden geladen; falls nicht vorhanden, zeichnet das Canvas Ersatz-Grafiken.
+- **Physik & Bewegungsablauf:**
+  - Der Boden (Wiese) liegt exakt auf **`y = 0`**.
+  - Die Spielfigur startet immer bei **`(0 | 0)`**.
+  - Sie läuft **nicht** unnötig nach hinten, sondern springt direkt bei `x = 0` los – **außer**, ein schweres Level definiert explizit ein negatives `startX` (z. B. `startX: -3`), dann läuft die Figur erst dorthin zurück.
+  - Nach der letzten Münze fällt die Figur im realistischen Bogen (Schwerkraft) nach vorne zurück auf die Wiese (`y = 0`).
+- **Steuerung & Speicherstand:**
+  - Absenden der Formel und Wechsel ins nächste Level funktionieren per Klick **und per Enter-Taste**.
+  - Oben gibt es eine Spieler-Leiste: Der Level-Fortschritt wird über `localStorage` unter dem eingegebenen **Spielernamen** gespeichert (`matheJump_lvl_<Name>`).
+
+## 3. Aktuelle Dateistruktur im Projektordner
+```text
+mathe-jump/
+├── index.html   # UI: Spielername-Leiste, Level-Titel/Hinweis, Canvas (600x400), Input "y =", Buttons
+├── style.css    # Dunkles Responsive-Design für Desktop & Mobile
+├── levels.js    # Konstante LEVELS = [ { title, hint, startX, coins: [{x, y}] }, ... ]
+├── game.js      # Canvas-Engine, Mathe-Parser, 4-Phasen-Animation, localStorage-Speicherstand
+├── figure.png   # Eigene Spielfigur (Mario-Sprite)
+├── coin.png     # Eigene Münz-Grafik
+└── README.md    # Projektdokumentation
+```
+
+## 4. Technische Details der aktuellen Logik (`game.js` & `levels.js`)
+- **Mathe-Parser (`evaluateFormula`):** Unterstützt `+`, `-`, `*`, `/`, `^` (umgewandelt in `**`), implizite Multiplikation (`2x` -> `2*x`), führendes Minus vor x (`-x^2` -> `-1*x**2`) sowie `sin`, `cos`, `tan`, `abs`, `sqrt`.
+- **Animations-Phasen (`animate`):**
+  1. `runToStart`: Läuft von `0` zu `lvl.startX` (wird übersprungen, wenn `startX === 0`).
+  2. `hopToCurve`: Springt auf den Start-Y-Wert der Formel bei `startX`.
+  3. `math`: Bewegt die Figur schrittweise (`dx = 0.07`) nach der Formel bis `letzteMünze.x + 0.5`, zeichnet eine weiße Spur und prüft Kollisionen (`dist < 0.55`).
+  4. `land`: Realistische Parabel-Landung zurück auf `groundY = 0`.
+- **Bereits eingebaute Level (4 Stück):**
+  1. Gerade (`x + 1`)
+  2. Flache Steigung (`0.5*x`)
+  3. Parabel ab `x = 0` (`-(x-2)^2 + 4` bzw. `-x^2 + 4*x`)
+  4. Parabel mit Anlauf ab `startX: -3` (`-x^2 + 4`)
+
+## 5. Nächster Schritt
+Bestätige kurz, dass du den Projektstand verstanden hast, und frage mich, welches neue Feature oder Level wir als Nächstes umsetzen sollen.
