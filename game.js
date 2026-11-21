@@ -27,6 +27,7 @@ let player = { x: 0, y: 0 };
 let pathPoints = [];
 let isAnimating = false;
 let previewPoints = [];
+let platforms = [];
 
 let scale = 38;
 let originX = canvas.width / 2;
@@ -85,6 +86,8 @@ function loadLevel(index) {
   coins = [...lvl.coins]
     .sort((a, b) => a.x - b.x)
     .map(c => ({ ...c, collected: false }));
+
+  platforms = (lvl.platforms || []).map(p => ({ ...p }));
 
   updateCameraForLevel(lvl);
   player = { x: 0, y: groundY };
@@ -222,8 +225,18 @@ jumpBtn.addEventListener("click", () => {
         if (dist < 0.55) coin.collected = true;
       });
 
-      const hitGroundEarly = (player.x > jumpStartX + 0.3 && rawY <= groundY);
-      if (player.x >= jumpEndX || hitGroundEarly) {
+      // Plattform-Landung prüfen (Figur darf auf Plattformen landen)
+      const plat = platforms.find(p =>
+        player.x >= p.x && player.x <= p.x + p.w &&
+        player.y >= p.y - 0.15 && player.y <= p.y + 0.15
+      );
+
+      if (plat) {
+        player.y = plat.y;
+        vx = 0.07;
+        vy = 0;
+        phase = "land";
+      } else if (player.x >= jumpEndX) {
         if (player.y <= groundY + 0.05) {
           player.y = groundY;
           vx = 0.07;
@@ -325,6 +338,16 @@ function draw() {
   ctx.fillRect(0, grassTop, canvas.width, canvas.height - grassTop);
   ctx.fillStyle = "#388e3c";
   ctx.fillRect(0, grassTop, canvas.width, 6);
+
+  // Plattformen zeichnen
+  platforms.forEach(p => {
+    ctx.fillStyle = "#8d6e63";
+    ctx.fillRect(toPixelX(p.x), toPixelY(p.y) - p.h * scale, p.w * scale, p.h * scale);
+    ctx.strokeStyle = "#5d4037";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(toPixelX(p.x), toPixelY(p.y) - p.h * scale, p.w * scale, p.h * scale);
+    ctx.lineWidth = 1;
+  });
 
   ctx.fillStyle = "#1b4332";
   ctx.font = "bold 11px sans-serif";
