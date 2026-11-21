@@ -26,8 +26,11 @@ const coinDisplay = document.createElement("span");
 coinDisplay.id = "coinDisplay";
 const attemptDisplay = document.createElement("span");
 attemptDisplay.id = "attemptDisplay";
+const totalDisplay = document.createElement("span");
+totalDisplay.id = "totalDisplay";
 hud.appendChild(coinDisplay);
 hud.appendChild(attemptDisplay);
+hud.appendChild(totalDisplay);
 
 const playerNameInput = document.getElementById("playerNameInput");
 const savePlayerBtn = document.getElementById("savePlayerBtn");
@@ -118,11 +121,29 @@ savePlayerBtn.addEventListener("click", () => {
   statusMsg.textContent = `Spielstand für "${currentPlayerName}" geladen!`;
 });
 
+function getTotalCollectedCoins() {
+  let total = 0;
+  // Bereits abgeschlossene/gespielte Levels aus levelCoinState
+  for (const key in levelCoinState) {
+    const idx = parseInt(key);
+    if (idx === currentLevelIndex) continue; // aktuelles Level separat zählen
+    for (const c of levelCoinState[key]) {
+      if (c.collected && !c.removed) total++;
+    }
+  }
+  // Aktuelles Level (live)
+  for (const c of coins) {
+    if (c.collected) total++;
+  }
+  return total;
+}
+
 function updateHUD() {
-  const total = coins.length;
-  const collected = coins.filter(c => c.collected).length;
-  coinDisplay.textContent = `🪙 ${collected}/${total}`;
+  const levelTotal = coins.length;
+  const levelCollected = coins.filter(c => c.collected).length;
+  coinDisplay.textContent = `🪙 ${levelCollected}/${levelTotal}`;
   attemptDisplay.textContent = `Versuch: ${attempts}/${maxAttempts}`;
+  totalDisplay.textContent = `💰 Gesamt: ${getTotalCollectedCoins()}`;
 }
 
 function loadLevel(index) {
@@ -298,6 +319,7 @@ jumpBtn.addEventListener("click", () => {
         const dist = Math.hypot(player.x - coin.x, player.y - coin.y);
         if (dist < 0.55) coin.collected = true;
       });
+      updateHUD();
 
       // Plattform-Landung prüfen (Figur darf auf Plattformen landen)
       const plat = platforms.find(p =>
@@ -356,6 +378,9 @@ function checkWin() {
       statusMsg.textContent = `Glückwunsch ${currentPlayerName}! Alle Level gemeistert! 🏆`;
     } else {
       statusMsg.textContent = "Wiederholung gespielt – kein Fortschritt gespeichert.";
+      if (currentLevelIndex < LEVELS.length - 1) {
+        nextBtn.classList.remove("hidden");
+      }
     }
     if (!currentIsReplay) saveCoinState();
     updateHUD();
