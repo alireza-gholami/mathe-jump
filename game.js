@@ -6,12 +6,17 @@ const levelHint = document.getElementById("level-hint");
 const formulaInput = document.getElementById("formula");
 const jumpBtn = document.getElementById("jumpBtn");
 const nextBtn = document.getElementById("nextBtn");
+const prevBtn = document.createElement("button");
+prevBtn.id = "prevBtn";
+prevBtn.textContent = "⬅️ Vorheriges Level";
+prevBtn.className = "hidden";
+nextBtn.parentNode.insertBefore(prevBtn, nextBtn);
 const statusMsg = document.getElementById("status-msg");
 
 // HUD für Coins und Versuche (oben anzeigen)
 const hud = document.createElement("div");
 hud.id = "hud";
-hud.style.cssText = "display:flex; gap:24px; font-weight:bold; margin:8px 0; font-size:15px; color:#222;";
+hud.style.cssText = "display:flex; gap:24px; font-weight:bold; margin:8px 0; font-size:15px; color:#fff; text-shadow:1px 1px 3px rgba(0,0,0,0.9); background:rgba(0,0,0,0.45); padding:6px 14px; border-radius:8px; display:inline-block;";
 document.querySelector(".game-container").insertBefore(hud, document.querySelector("header"));
 
 const coinDisplay = document.createElement("span");
@@ -44,6 +49,8 @@ let isAnimating = false;
 let previewPoints = [];
 let attempts = 0;
 let maxAttempts = 3;
+let maxReachedLevel = 0;
+let currentIsReplay = false;
 
 let scale = 38;
 let originX = canvas.width / 2;
@@ -86,7 +93,8 @@ function loadPlayerProgress(name) {
   jumpBtn.disabled = false;
 
   const savedLvl = parseInt(localStorage.getItem(`matheJump_lvl_${cleanName}`), 10);
-  currentLevelIndex = (!isNaN(savedLvl) && savedLvl < LEVELS.length) ? savedLvl : 0;
+  maxReachedLevel = (!isNaN(savedLvl) && savedLvl < LEVELS.length) ? savedLvl : 0;
+  currentLevelIndex = maxReachedLevel;
   savedBadge.textContent = `Gespeichert: Level ${currentLevelIndex + 1}`;
   loadLevel(currentLevelIndex);
 }
@@ -94,6 +102,11 @@ function loadPlayerProgress(name) {
 function savePlayerProgress() {
   localStorage.setItem(`matheJump_lvl_${currentPlayerName}`, currentLevelIndex);
   savedBadge.textContent = `Gespeichert: Level ${currentLevelIndex + 1}`;
+}
+
+function saveCoinState() {
+  if (!currentPlayerName) return;
+  localStorage.setItem(`matheJump_coins_${currentPlayerName}_${currentLevelIndex}`, JSON.stringify(levelCoinState[currentLevelIndex] || []));
 }
 
 savePlayerBtn.addEventListener("click", () => {
@@ -114,13 +127,22 @@ function loadLevel(index) {
   levelTitle.textContent = lvl.title;
   levelHint.textContent = lvl.hint;
 
-  // Coin-Zustand pro Level initialisieren (falls noch nicht vorhanden)
-  if (!levelCoinState[index]) {
-    levelCoinState[index] = lvl.coins.map(c => ({ ...c, collected: false, removed: false }));
+  // Replay-Modus: Dieses Level wurde bereits abgeschlossen
+  currentIsReplay = index < maxReachedLevel;
+
+  // Gespeicherten Münzzustand für diesen Spieler und dieses Level laden
+  const savedCoins = localStorage.getItem(`matheJump_coins_${currentPlayerName}_${index}`);
+  let initialCoins;
+  if (savedCoins) {
+    initialCoins = JSON.parse(savedCoins);
+  } else {
+    initialCoins = lvl.coins.map(c => ({ ...c, collected: false, removed: false }));
   }
+  levelCoinState[index] = initialCoins;
+
   coins = levelCoinState[index]
     .filter(c => !c.removed)
-    .map(c => ({ ...c, collected: false }))
+    .map(c => ({ ...c, collected: c.collected || false }))
     .sort((a, b) => a.x - b.x);
 
   platforms = (lvl.platforms || []).map(p => ({ ...p }));
@@ -130,7 +152,10 @@ function loadLevel(index) {
   pathPoints = [];
   attempts = 0;
   statusMsg.textContent = "";
-  nextBtn.classList.add("hidden");
+
+  // Button-Sichtbarkeit
+  prevBtn.classList.toggle("hidden", index === 0);
+  nextBtn.classList.add("hidden"); // wird erst durch checkWin wieder angezeigt (außer Replay)
   jumpBtn.disabled = false;
   updateHUD();
   draw();
@@ -318,15 +343,25 @@ function checkWin() {
   const allCollected = coins.every(c => c.collected);
   if (allCollected) {
     statusMsg.style.color = "#a6e3a1";
-    if (currentLevelIndex < LEVELS.length - 1) {
+    if (!currentIsReplay && currentLevelIndex < LEVELS.length - 1) {
       statusMsg.textContent = "Perfekt! Alle Münzen gesammelt! 🎉 (Drücke Enter)";
       nextBtn.classList.remove("hidden");
       localStorage.setItem(`matheJump_lvl_${currentPlayerName}`, currentLevelIndex + 1);
+      maxReachedLevel = Math.max(maxReachedLevel, currentLevelIndex + 1);
       savedBadge.textContent = `Gespeichert: Level ${currentLevelIndex + 2}`;
-    } else {
+    } else if (!currentIsReplay) {
       statusMsg.textContent = `Glückwunsch ${currentPlayerName}! Alle Level gemeistert! 🏆`;
+    } else {
+      statusMsg.textContent = "Wiederholung gespielt – kein Fortschritt gespeichert.";
     }
+    if (!currentIsReplay) saveCoinState();
     updateHUD();
+    return;
+  }
+
+  if (currentIsReplay) {
+    statusMsg.style.color = "#fab387";
+    statusMsg.textContent = "Wiederholungsmodus: Keine Versuche gezählt, keine Coins entfernt.";
     return;
   }
 
@@ -340,6 +375,7 @@ function checkWin() {
     if (uncollected) {
       uncollected.removed = true;
       levelCoinState[currentLevelIndex] = levelCoinState[currentLevelIndex].filter(c => !c.removed);
+      saveCoinState();
       statusMsg.style.color = "#f38ba8";
       statusMsg.textContent = `3 Versuche verbraucht! Ein Coin wurde entfernt. Neustart…`;
       attempts = 0;
@@ -352,6 +388,15 @@ function checkWin() {
     statusMsg.textContent = `Knapp daneben! Versuch ${attempts}/${maxAttempts}. Passe deine Formel an.`;
   }
 }
+
+prevBtn.addEventListener("click", () => {
+  if (currentLevelIndex > 0) {
+    currentLevelIndex--;
+    formulaInput.value = "";
+    loadLevel(currentLevelIndex);
+    formulaInput.focus();
+  }
+});
 
 nextBtn.addEventListener("click", () => {
   currentLevelIndex++;
