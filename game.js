@@ -10,13 +10,16 @@ const prevBtn = document.createElement("button");
 prevBtn.id = "prevBtn";
 prevBtn.textContent = "⬅️ Vorheriges Level";
 prevBtn.className = "hidden";
+prevBtn.style.cssText = "background:#6b7280; color:#fff; border:none; border-radius:8px; padding:10px 16px; font-size:0.95rem; font-weight:bold; cursor:pointer; margin-left:8px;";
+prevBtn.onmouseover = () => { prevBtn.style.background = "#4b5563"; };
+prevBtn.onmouseout = () => { prevBtn.style.background = "#6b7280"; };
 nextBtn.parentNode.insertBefore(prevBtn, nextBtn);
 const statusMsg = document.getElementById("status-msg");
 
 // HUD für Coins und Versuche (oben anzeigen)
 const hud = document.createElement("div");
 hud.id = "hud";
-hud.style.cssText = "display:flex; gap:24px; font-weight:bold; margin:8px 0; font-size:15px; color:#fff; text-shadow:1px 1px 3px rgba(0,0,0,0.9); background:rgba(0,0,0,0.45); padding:6px 14px; border-radius:8px; display:inline-block;";
+hud.style.cssText = "display:flex; justify-content:space-between; align-items:center; font-weight:bold; margin:8px 0; font-size:15px; color:#fff; text-shadow:1px 1px 3px rgba(0,0,0,0.9); background:rgba(0,0,0,0.45); padding:6px 16px; border-radius:8px; width:100%; box-sizing:border-box;";
 document.querySelector(".game-container").insertBefore(hud, document.querySelector("header"));
 
 const coinDisplay = document.createElement("span");
