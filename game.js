@@ -8,6 +8,19 @@ const jumpBtn = document.getElementById("jumpBtn");
 const nextBtn = document.getElementById("nextBtn");
 const statusMsg = document.getElementById("status-msg");
 
+// HUD für Coins und Versuche (oben anzeigen)
+const hud = document.createElement("div");
+hud.id = "hud";
+hud.style.cssText = "display:flex; gap:24px; font-weight:bold; margin:8px 0; font-size:15px; color:#222;";
+document.querySelector(".game-container").insertBefore(hud, document.querySelector("header"));
+
+const coinDisplay = document.createElement("span");
+coinDisplay.id = "coinDisplay";
+const attemptDisplay = document.createElement("span");
+attemptDisplay.id = "attemptDisplay";
+hud.appendChild(coinDisplay);
+hud.appendChild(attemptDisplay);
+
 const playerNameInput = document.getElementById("playerNameInput");
 const savePlayerBtn = document.getElementById("savePlayerBtn");
 const savedBadge = document.getElementById("savedBadge");
@@ -20,14 +33,17 @@ const coinImg = new Image();
 coinImg.src = "coin.png";
 coinImg.onload = () => draw();
 
-let currentPlayerName = localStorage.getItem("matheJump_lastPlayer") || "Gast";
+let currentPlayerName = localStorage.getItem("matheJump_lastPlayer") || "";
 let currentLevelIndex = 0;
 let coins = [];
+let platforms = [];
+let levelCoinState = {};
 let player = { x: 0, y: 0 };
 let pathPoints = [];
 let isAnimating = false;
 let previewPoints = [];
-let platforms = [];
+let attempts = 0;
+let maxAttempts = 3;
 
 let scale = 38;
 let originX = canvas.width / 2;
@@ -57,10 +73,17 @@ function updateCameraForLevel(lvl) {
 }
 
 function loadPlayerProgress(name) {
-  const cleanName = name.trim() || "Gast";
+  const cleanName = name.trim();
+  if (!cleanName) {
+    statusMsg.style.color = "#f38ba8";
+    statusMsg.textContent = "Bitte gib einen eindeutigen Namen ein und klicke Laden/Speichern!";
+    jumpBtn.disabled = true;
+    return;
+  }
   currentPlayerName = cleanName;
   playerNameInput.value = cleanName;
   localStorage.setItem("matheJump_lastPlayer", cleanName);
+  jumpBtn.disabled = false;
 
   const savedLvl = parseInt(localStorage.getItem(`matheJump_lvl_${cleanName}`), 10);
   currentLevelIndex = (!isNaN(savedLvl) && savedLvl < LEVELS.length) ? savedLvl : 0;
@@ -79,22 +102,37 @@ savePlayerBtn.addEventListener("click", () => {
   statusMsg.textContent = `Spielstand für "${currentPlayerName}" geladen!`;
 });
 
+function updateHUD() {
+  const total = coins.length;
+  const collected = coins.filter(c => c.collected).length;
+  coinDisplay.textContent = `🪙 ${collected}/${total}`;
+  attemptDisplay.textContent = `Versuch: ${attempts}/${maxAttempts}`;
+}
+
 function loadLevel(index) {
   const lvl = LEVELS[index];
   levelTitle.textContent = lvl.title;
   levelHint.textContent = lvl.hint;
-  coins = [...lvl.coins]
-    .sort((a, b) => a.x - b.x)
-    .map(c => ({ ...c, collected: false }));
+
+  // Coin-Zustand pro Level initialisieren (falls noch nicht vorhanden)
+  if (!levelCoinState[index]) {
+    levelCoinState[index] = lvl.coins.map(c => ({ ...c, collected: false, removed: false }));
+  }
+  coins = levelCoinState[index]
+    .filter(c => !c.removed)
+    .map(c => ({ ...c, collected: false }))
+    .sort((a, b) => a.x - b.x);
 
   platforms = (lvl.platforms || []).map(p => ({ ...p }));
 
   updateCameraForLevel(lvl);
   player = { x: 0, y: groundY };
   pathPoints = [];
+  attempts = 0;
   statusMsg.textContent = "";
   nextBtn.classList.add("hidden");
   jumpBtn.disabled = false;
+  updateHUD();
   draw();
 }
 
@@ -160,6 +198,11 @@ formulaInput.addEventListener("keydown", (e) => {
 
 jumpBtn.addEventListener("click", () => {
   if (isAnimating) return;
+  if (!currentPlayerName) {
+    statusMsg.style.color = "#f38ba8";
+    statusMsg.textContent = "Bitte gib zuerst einen eindeutigen Namen ein und klicke Laden/Speichern!";
+    return;
+  }
   const expr = formulaInput.value.trim();
   if (!expr) return;
 
@@ -180,14 +223,17 @@ jumpBtn.addEventListener("click", () => {
   jumpBtn.disabled = true;
 
   const jumpStartX = lvl.startX !== undefined ? lvl.startX : 0;
-  const lastCoinX = coins[coins.length - 1].x;
+  const lastCoinX = coins.length > 0 ? coins[coins.length - 1].x : 0;
   const jumpEndX = lastCoinX + 0.35;
   const entryY = Math.max(groundY, evaluateFormula(expr, jumpStartX));
+
+  // Laufrichtung: nach rechts oder nach links (hin und zurück)
+  const dir = jumpEndX >= jumpStartX ? 1 : -1;
 
   let phase = (jumpStartX !== 0) ? "runToStart" : "hopToCurve";
   player = { x: 0, y: groundY };
   let hopProgress = 0;
-  let vx = 0.08;
+  let vx = 0.08 * dir;
   let vy = 0;
 
   function animate() {
@@ -214,7 +260,7 @@ jumpBtn.addEventListener("click", () => {
         }
       }
     } else if (phase === "math") {
-      player.x += 0.07;
+      player.x += 0.07 * dir;
       const rawY = evaluateFormula(expr, player.x);
 
       player.y = Math.max(groundY, rawY);
@@ -280,9 +326,30 @@ function checkWin() {
     } else {
       statusMsg.textContent = `Glückwunsch ${currentPlayerName}! Alle Level gemeistert! 🏆`;
     }
+    updateHUD();
+    return;
+  }
+
+  // Fehlversuch zählen
+  attempts++;
+  updateHUD();
+
+  if (attempts >= maxAttempts) {
+    // Einen ungesammelten Coin entfernen
+    const uncollected = coins.find(c => !c.collected);
+    if (uncollected) {
+      uncollected.removed = true;
+      levelCoinState[currentLevelIndex] = levelCoinState[currentLevelIndex].filter(c => !c.removed);
+      statusMsg.style.color = "#f38ba8";
+      statusMsg.textContent = `3 Versuche verbraucht! Ein Coin wurde entfernt. Neustart…`;
+      attempts = 0;
+      setTimeout(() => loadLevel(currentLevelIndex), 1500);
+    } else {
+      statusMsg.textContent = "Knapp daneben! Passe deine Formel an und drücke Enter.";
+    }
   } else {
     statusMsg.style.color = "#fab387";
-    statusMsg.textContent = "Knapp daneben! Passe deine Formel an und drücke Enter.";
+    statusMsg.textContent = `Knapp daneben! Versuch ${attempts}/${maxAttempts}. Passe deine Formel an.`;
   }
 }
 
