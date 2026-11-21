@@ -12,7 +12,6 @@ const playerNameInput = document.getElementById("playerNameInput");
 const savePlayerBtn = document.getElementById("savePlayerBtn");
 const savedBadge = document.getElementById("savedBadge");
 
-// Eigene Bilder laden
 const figureImg = new Image();
 figureImg.src = "figure.png";
 figureImg.onload = () => draw();
@@ -27,16 +26,35 @@ let coins = [];
 let player = { x: 0, y: 0 };
 let pathPoints = [];
 let isAnimating = false;
+let previewPoints = [];
 
-const scale = 38;
-const originX = canvas.width / 2;
-const originY = canvas.height / 2 + 25;
+let scale = 38;
+let originX = canvas.width / 2;
+let originY = canvas.height - 85;
 const groundY = 0;
 
 function toPixelX(x) { return originX + x * scale; }
 function toPixelY(y) { return originY - y * scale; }
 
-// Spieler-Fortschritt laden & speichern
+function updateCameraForLevel(lvl) {
+  const startX = lvl.startX !== undefined ? lvl.startX : 0;
+  const allX = [0, startX, ...lvl.coins.map(c => c.x)];
+  const allY = [0, ...lvl.coins.map(c => c.y)];
+
+  const minX = Math.min(...allX) - 1.5;
+  const maxX = Math.max(...allX) + 2.2;
+  const maxY = Math.max(5.5, Math.max(...allY) + 1.5);
+
+  const rangeX = maxX - minX;
+  const usableHeight = canvas.height - 105;
+
+  scale = Math.min(44, Math.max(26, Math.min((canvas.width - 50) / rangeX, usableHeight / maxY)));
+
+  const centerX = (minX + maxX) / 2;
+  originX = (canvas.width / 2) - centerX * scale;
+  originY = canvas.height - 65;
+}
+
 function loadPlayerProgress(name) {
   const cleanName = name.trim() || "Gast";
   currentPlayerName = cleanName;
@@ -68,6 +86,7 @@ function loadLevel(index) {
     .sort((a, b) => a.x - b.x)
     .map(c => ({ ...c, collected: false }));
 
+  updateCameraForLevel(lvl);
   player = { x: 0, y: groundY };
   pathPoints = [];
   statusMsg.textContent = "";
@@ -86,6 +105,44 @@ function evaluateFormula(expr, x) {
   const fn = new Function("x", `return ${clean};`);
   return fn(x);
 }
+
+function updatePreview() {
+  const expr = formulaInput.value.trim();
+  if (!expr) {
+    previewPoints = [];
+    draw();
+    return;
+  }
+
+  try {
+    const testY = evaluateFormula(expr, 0);
+    if (isNaN(testY)) {
+      previewPoints = [];
+      draw();
+      return;
+    }
+
+    const lvl = LEVELS[currentLevelIndex];
+    const startX = lvl.startX !== undefined ? lvl.startX : 0;
+    const lastCoinX = coins.length > 0 ? coins[coins.length - 1].x : 0;
+    const minX = Math.min(0, startX, lastCoinX) - 1;
+    const maxX = Math.max(0, startX, lastCoinX) + 1;
+
+    const points = [];
+    for (let x = minX; x <= maxX; x += 0.1) {
+      const y = evaluateFormula(expr, x);
+      if (!isNaN(y)) {
+        points.push({ x: x, y: Math.max(groundY, y) });
+      }
+    }
+    previewPoints = points;
+  } catch {
+    previewPoints = [];
+  }
+  draw();
+}
+
+formulaInput.addEventListener("input", updatePreview);
 
 formulaInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
@@ -119,12 +176,11 @@ jumpBtn.addEventListener("click", () => {
   isAnimating = true;
   jumpBtn.disabled = true;
 
-  // Startpunkt des Sprungs: entweder 0 oder der im Level definierte startX
   const jumpStartX = lvl.startX !== undefined ? lvl.startX : 0;
-  const jumpEndX = coins[coins.length - 1].x + 0.5;
-  const entryY = evaluateFormula(expr, jumpStartX);
+  const lastCoinX = coins[coins.length - 1].x;
+  const jumpEndX = lastCoinX + 0.35;
+  const entryY = Math.max(groundY, evaluateFormula(expr, jumpStartX));
 
-  // Wenn jumpStartX == 0, springt er direkt los, ohne erst zurückzulaufen!
   let phase = (jumpStartX !== 0) ? "runToStart" : "hopToCurve";
   player = { x: 0, y: groundY };
   let hopProgress = 0;
@@ -143,8 +199,7 @@ jumpBtn.addEventListener("click", () => {
         phase = "hopToCurve";
       }
     } else if (phase === "hopToCurve") {
-      // Wenn Formel bei x=0 über dem Boden startet (z.B. x + 1 -> y=1), hüpft er hoch
-      if (Math.abs(entryY - groundY) < 0.1) {
+      if (Math.abs(entryY - groundY) < 0.08) {
         player.y = entryY;
         phase = "math";
       } else {
@@ -157,7 +212,9 @@ jumpBtn.addEventListener("click", () => {
       }
     } else if (phase === "math") {
       player.x += 0.07;
-      player.y = evaluateFormula(expr, player.x);
+      const rawY = evaluateFormula(expr, player.x);
+
+      player.y = Math.max(groundY, rawY);
       pathPoints.push({ x: player.x, y: player.y });
 
       coins.forEach(coin => {
@@ -165,9 +222,16 @@ jumpBtn.addEventListener("click", () => {
         if (dist < 0.55) coin.collected = true;
       });
 
-      if (player.x >= jumpEndX) {
-        const prevY = evaluateFormula(expr, player.x - 0.07);
-        vy = Math.max(-0.05, Math.min(0.12, (player.y - prevY) * 0.6));
+      const hitGroundEarly = (player.x > jumpStartX + 0.3 && rawY <= groundY);
+      if (player.x >= jumpEndX || hitGroundEarly) {
+        if (player.y <= groundY + 0.05) {
+          player.y = groundY;
+          vx = 0.07;
+          vy = 0;
+        } else {
+          const prevY = evaluateFormula(expr, player.x - 0.07);
+          vy = Math.max(-0.04, Math.min(0.1, (player.y - prevY) * 0.5));
+        }
         phase = "land";
       }
     } else if (phase === "land") {
@@ -198,7 +262,6 @@ function checkWin() {
     if (currentLevelIndex < LEVELS.length - 1) {
       statusMsg.textContent = "Perfekt! Alle Münzen gesammelt! 🎉 (Drücke Enter)";
       nextBtn.classList.remove("hidden");
-      // Nächstes Level direkt unter dem Spielernamen speichern
       localStorage.setItem(`matheJump_lvl_${currentPlayerName}`, currentLevelIndex + 1);
       savedBadge.textContent = `Gespeichert: Level ${currentLevelIndex + 2}`;
     } else {
@@ -245,9 +308,13 @@ function draw() {
   ctx.arc(460, grassTop + 10, 150, Math.PI, 0);
   ctx.fill();
 
+  const minGridX = Math.floor(-originX / scale) - 1;
+  const maxGridX = Math.ceil((canvas.width - originX) / scale) + 1;
+  const maxGridY = Math.ceil(originY / scale) + 1;
+
   ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
-  for (let x = -7; x <= 7; x++) {
-    for (let y = -3; y <= 5; y++) {
+  for (let x = minGridX; x <= maxGridX; x++) {
+    for (let y = 0; y <= maxGridY; y++) {
       ctx.beginPath();
       ctx.arc(toPixelX(x), toPixelY(y), 2, 0, Math.PI * 2);
       ctx.fill();
@@ -261,12 +328,28 @@ function draw() {
 
   ctx.fillStyle = "#1b4332";
   ctx.font = "bold 11px sans-serif";
-  for (let x = -6; x <= 6; x += 2) {
-    ctx.fillText(x, toPixelX(x) - 4, grassTop + 18);
+  for (let x = minGridX; x <= maxGridX; x++) {
+    if (x % 2 === 0 || scale >= 36) {
+      ctx.fillText(x, toPixelX(x) - 4, grassTop + 18);
+    }
   }
+
   ctx.fillStyle = "rgba(27, 67, 50, 0.75)";
-  for (let y = -2; y <= 4; y += 2) {
+  for (let y = 1; y <= maxGridY; y += 2) {
     ctx.fillText("y=" + y, 8, toPixelY(y) + 4);
+  }
+
+  if (!isAnimating && previewPoints.length > 1) {
+    ctx.strokeStyle = "rgba(160, 160, 170, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(toPixelX(previewPoints[0].x), toPixelY(previewPoints[0].y));
+    for (let p of previewPoints) {
+      ctx.lineTo(toPixelX(p.x), toPixelY(p.y));
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   if (pathPoints.length > 1) {
@@ -302,7 +385,6 @@ function draw() {
       }
     }
   });
-
   const px = toPixelX(player.x);
   const py = toPixelY(player.y);
   if (figureImg.complete && figureImg.naturalWidth > 0) {
@@ -317,6 +399,4 @@ function draw() {
     ctx.stroke();
   }
 }
-
-// Spiel mit letztem Spielernamen starten
 loadPlayerProgress(currentPlayerName);
